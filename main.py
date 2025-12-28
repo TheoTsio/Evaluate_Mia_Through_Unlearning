@@ -186,7 +186,7 @@ if __name__ == "__main__":
     merged_loader = create_merged_loader(X_retain_tensor, y_retain_tensor, X_forget_tensor, y_forget_tensor, batch_size=32, shuffle=True)
 
     # Hyperparameters for Unlearning
-    learning_rate = 0.0003
+    learning_rate = 0.000015
     epochs = 30
     batch_size = 32
 
@@ -217,8 +217,8 @@ if __name__ == "__main__":
     num_epochs_MIA = 50
     num_shadow_models = 5
     # Unlearn the target neural network
-    # mia_stats, accs, losses = scrub_tracking_MIA(retain_member_df, forget_member_df, train_non_member_data, attack_model,  unlearned_model, retain_loader, test_loader, test_loader, forget_loader, optimizer=optimizer, scheduler=None, criterion=criterion, epochs=epochs, device=device, teacher_model=teacher_model)
-    mia_stats, accs, losses = neg_grad_tracking_MIA(retain_member_df, forget_member_df, train_non_member_data, attack_model, unlearned_model, retain_loader, test_loader, test_loader, forget_loader, optimizer=optimizer, scheduler=None, criterion=criterion, epochs=epochs, device=device, X_shadow=X_shadow, y_shadow=y_shadow, num_shadow_models=num_shadow_models, num_features=num_features, num_classes=num_classes, batch_size=batch_size, learning_rate=learning_rate, num_epochs_MIA=num_epochs_MIA, shadow_model_architecture=TargetModel_1a)
+    mia_stats, accs, losses = scrub_tracking_MIA(retain_member_df, forget_member_df, train_non_member_data, attack_model,  unlearned_model, retain_loader, test_loader, test_loader, forget_loader, optimizer=optimizer, scheduler=None, criterion=criterion, epochs=epochs, device=device, teacher_model=teacher_model)
+    # mia_stats, accs, losses = neg_grad_tracking_MIA(retain_member_df, forget_member_df, train_non_member_data, attack_model, unlearned_model, retain_loader, test_loader, test_loader, forget_loader, optimizer=optimizer, scheduler=None, criterion=criterion, epochs=epochs, device=device, X_shadow=X_shadow, y_shadow=y_shadow, num_shadow_models=num_shadow_models, num_features=num_features, num_classes=num_classes, batch_size=batch_size, learning_rate=learning_rate, num_epochs_MIA=num_epochs_MIA, shadow_model_architecture=TargetModel_1a)
     # mia_stats, accs, losses = sftc_unlearn_tracking_MIA(retain_member_df, forget_member_df, train_non_member_data, attack_model, unlearned_model, retain_loader, test_loader, test_loader, forget_loader, optimizer=optimizer, scheduler=None, criterion=criterion, epochs=epochs, device=device, merged_loader=merged_loader, teacher_model=teacher_model, dummy_model=dummy_model,  X_shadow=X_shadow, y_shadow=y_shadow, num_shadow_models=num_shadow_models, num_features=num_features, num_classes=num_classes, batch_size=batch_size, learning_rate=learning_rate, num_epochs_MIA=num_epochs_MIA, shadow_model_architecture=TargetModel_1a)
 
     '''
