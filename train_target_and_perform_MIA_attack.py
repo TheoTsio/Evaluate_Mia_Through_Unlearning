@@ -26,6 +26,7 @@ import gc
 
 from preprocess_data import *
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
@@ -38,7 +39,7 @@ def set_random_seed(seed: int = 42) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-model_architecture = TargetModel_1c
+model_architecture = TargetModel_2a
 
 
 def train_model(
@@ -77,6 +78,7 @@ def train_model(
             total_validation_loss = 0.0
             with torch.no_grad():
                 for inputs, labels in val_loader:
+                    inputs, labels = inputs.to(device), labels.to(device)
                     outputs = model(inputs)
                     loss = criterion(outputs, labels)
                     total_validation_loss += loss.item()
@@ -106,17 +108,22 @@ def create_membership_dataframe(
 
     model.eval()
     model.to(device)
-    member_tensor = torch.tensor(member_data.values, dtype=torch.float32).to(device)
-    non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).to(device)
+    '''For traditional ML models Only Fc'''
+    # member_tensor = torch.tensor(member_data.values, dtype=torch.float32).to(device)
+    # non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).to(device)
+    
+    '''For CNNs'''
+    member_tensor = torch.tensor(member_data.values, dtype=torch.float32).reshape(-1, 3, 32, 32).to(device)
+    non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).reshape(-1, 3, 32, 32).to(device)
 
     with torch.no_grad():
         member_outputs = F.softmax(model(member_tensor), dim=1)
         non_member_outputs = F.softmax(model(non_member_tensor), dim=1)
 
-    member_df = pd.DataFrame(member_outputs.detach().numpy())
+    member_df = pd.DataFrame(member_outputs.cpu().detach().numpy())
     member_df['membership'] = True
 
-    non_member_df = pd.DataFrame(non_member_outputs.detach().numpy())
+    non_member_df = pd.DataFrame(non_member_outputs.cpu().detach().numpy())
     non_member_df['membership'] = False
 
     membership_df = pd.concat([member_df, non_member_df], ignore_index=True)
@@ -151,47 +158,55 @@ def evaluate_attack_model_get_stats(dataset, model):
     f1 = f1_score(labels, predictions)
 
     return accuracy, f1, precision, recall
-
-def evaluate_model_performance(model, loss_function, X_tensor, y_tensor):
+def evaluate_model_performance(model, loss_function, X_tensor, y_tensor, eval_batch_size=256):
+    """
+    Evaluate model performance using batched processing to avoid OOM.
+    Results are identical to processing all data at once.
+    """
     model.eval()
     model.to(device)
-    X_tensor = X_tensor.to(device)
-    y_tensor = y_tensor.to(device)
+    
+    total_loss = 0.0
+    all_predictions = []
+    all_labels = []
+    total_samples = 0
+    
     with torch.no_grad():
-        outputs = model(X_tensor)
-        loss = loss_function(outputs, y_tensor)
-        predictions = torch.argmax(outputs, dim=1).cpu().numpy()
-        true_labels = y_tensor.cpu().numpy()
-        accuracy = (predictions == true_labels).mean()
-        precision = precision_score(true_labels, predictions, average='weighted', zero_division=0)
-        recall = recall_score(true_labels, predictions, average='weighted', zero_division=0)
-    return loss.item(), accuracy, precision, recall
+        # Process in batches
+        for i in range(0, len(X_tensor), eval_batch_size):
+            '''For traditional ML models Only Fc'''
+            # batch_X = X_tensor[i:i+eval_batch_size].to(device)
+            
+            '''For CNNs'''
+            batch_X = X_tensor[i:i+eval_batch_size].reshape(-1, 3, 32, 32).to(device)
+            
+            batch_y = y_tensor[i:i+eval_batch_size].to(device)
+            
+            outputs = model(batch_X)
+            loss = loss_function(outputs, batch_y)
+            
+            # Accumulate loss weighted by batch size
+            batch_size = batch_X.size(0)
+            total_loss += loss.item() * batch_size
+            total_samples += batch_size
+            
+            # Store predictions and labels
+            predictions = torch.argmax(outputs, dim=1).cpu().numpy()
+            all_predictions.append(predictions)
+            all_labels.append(batch_y.cpu().numpy())
+    
+    # Concatenate all batches
+    all_predictions = np.concatenate(all_predictions)
+    all_labels = np.concatenate(all_labels)
+    
+    # Calculate metrics exactly as before
+    avg_loss = total_loss / total_samples
+    accuracy = (all_predictions == all_labels).mean()
+    precision = precision_score(all_labels, all_predictions, average='weighted', zero_division=0)
+    recall = recall_score(all_labels, all_predictions, average='weighted', zero_division=0)
+    
+    return avg_loss, accuracy, precision, recall
 
-
-def create_membership_dataframe(
-    model: nn.Module,
-    member_data: pd.DataFrame,
-    non_member_data: pd.DataFrame
-) -> pd.DataFrame:
-    """Create a DataFrame with model outputs and membership status. Also apply softmax on the outputs"""
-
-    model.eval()
-    member_tensor = torch.tensor(member_data.values, dtype=torch.float32).to(device)
-    non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).to(device)
-
-    with torch.no_grad():
-        member_outputs = F.softmax(model(member_tensor), dim=1)
-        non_member_outputs = F.softmax(model(non_member_tensor), dim=1)
-
-    member_df = pd.DataFrame(member_outputs.cpu().detach().numpy())
-    member_df['membership'] = True
-
-    non_member_df = pd.DataFrame(non_member_outputs.cpu().detach().numpy())
-    non_member_df['membership'] = False
-
-    membership_df = pd.concat([member_df, non_member_df], ignore_index=True)
-
-    return membership_df
 
 
 def train_attack_model_on_output_data(
@@ -312,11 +327,11 @@ Data preprocessing
 set_random_seed(42)
 
 # X, y, num_features, num_classes = get_mnist_dataset()
-# X, y, num_features, num_classes = get_cifar10_dataset()
+X, y, num_features, num_classes = get_cifar10_dataset()
 # X, y, num_features, num_classes = get_adults_dataset()
-X, y, num_features, num_classes = get_purchase_dataset(dataset_path='data/dataset_purchase.csv', keep_rows=40_000)
+# X, y, num_features, num_classes = get_purchase_dataset(dataset_path='data/dataset_purchase.csv', keep_rows=40_000)
 # X, y, num_features, num_classes = get_MUFAC_dataset("data/custom_korean_family_dataset_resolution_128/custom_train_dataset.csv", "data/custom_korean_family_dataset_resolution_128/train_images", percentage_of_rows_to_drop = 0.4)
-# X, y, num_features, num_classes = get_texas_100_dataset(path='texas100.npz', limit_rows=40_000)
+# X, y, num_features, num_classes = get_texas_100_dataset(path='data/texas100.npz', limit_rows=40_000)
 
 
 """
@@ -346,11 +361,19 @@ X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=
 X_target_train_set = X_train
 y_target_train_set = y_train
 
-# Convert data to PyTorch tensors
-X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+'''For traditional ML models Only Fc'''
+# # Convert data to PyTorch tensors
+# X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+# y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).squeeze()
+# X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+# y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).squeeze()
+
+''''For CNNs'''
+X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32).reshape(-1, 3, 32, 32)
 y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).squeeze()
-X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32).reshape(-1, 3, 32, 32)
 y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).squeeze()
+
 
 # Hyperparameters for images
 learning_rate = 0.001
@@ -377,7 +400,7 @@ output_size = num_classes
 print("NN input size", input_size)
 print("NN output size", output_size)
 
-target_model = model_architecture(input_size=input_size, output_size=output_size)
+target_model = model_architecture(input_channels=3, output_size=output_size)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(target_model.parameters(), lr=learning_rate, momentum=0.9)
@@ -417,11 +440,19 @@ def train_shadow_models_and_attack_model(target_model, X_shadow, y_shadow, num_s
         # Split data into training and testing sets
         X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.5)
 
-        # Convert to PyTorch tensors
-        X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+        '''For traditional ML models Only Fc'''
+        # # Convert data to PyTorch tensors
+        # X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32)
+        # y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).squeeze()
+        # X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+        # y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).squeeze()
+
+        ''''For CNNs'''
+        X_train_tensor = torch.tensor(X_train.values, dtype=torch.float32).reshape(-1, 3, 32, 32)
         y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).squeeze()
-        X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32)
+        X_test_tensor = torch.tensor(X_test.values, dtype=torch.float32).reshape(-1, 3, 32, 32)
         y_test_tensor = torch.tensor(y_test.values, dtype=torch.long).squeeze()
+
 
         # Create DataLoader instances for training and testing
         train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
@@ -433,7 +464,7 @@ def train_shadow_models_and_attack_model(target_model, X_shadow, y_shadow, num_s
         input_size = num_features
         output_size = num_classes
 
-        shadow_model = model_architecture(input_size=input_size, output_size=output_size)
+        shadow_model = model_architecture(input_channels=3, output_size=output_size)
 
         # Define loss function and optimizer
         criterion = nn.CrossEntropyLoss()

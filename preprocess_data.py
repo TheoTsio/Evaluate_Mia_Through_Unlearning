@@ -4,16 +4,6 @@ import random
 import numpy as np
 import pandas as pd
 import sys
-# Add the SFTC-Unlearn directory to Python path
-sftc_unlearn_path = '/home/theo/Desktop/Evaluate_Mia_Through_Unlearning'
-if sftc_unlearn_path not in sys.path:
-    sys.path.insert(0, sftc_unlearn_path)
-
-# Verify the path was added
-print("Python path:", sys.path)
-print("Looking for utils at:", os.path.join(sftc_unlearn_path, 'utils'))
-print("Utils exists:", os.path.exists(os.path.join(sftc_unlearn_path, 'utils')))
-print("unlearning_alg exists:", os.path.exists(os.path.join(sftc_unlearn_path, 'utils', 'unlearning_alg')))
 
 from utils.unlearning_alg.scrub import scrub
 from utils.unlearning_alg.sftc_unlearn import sftc_unlearn

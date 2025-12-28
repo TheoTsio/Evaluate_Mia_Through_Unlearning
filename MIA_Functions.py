@@ -53,18 +53,25 @@ from utils.unlearning_alg.scrub import scrub
 from utils.unlearning_alg.bad_teaching import bad_teaching
 from utils.unlearning_alg.sftc_unlearn import sftc_unlearn
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 def create_membership_dataframe(
     model: nn.Module,
     member_data: pd.DataFrame,
     non_member_data: pd.DataFrame
 ) -> pd.DataFrame:
     """Create a DataFrame with model outputs and membership status. Also apply softmax on the outputs"""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+
     model.eval()
-    model = model.to(device)
-    member_tensor = torch.tensor(member_data.values, dtype=torch.float32).to(device)
-    non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).to(device)
+    model.to(device)
+    '''For traditional ML models Only Fc'''
+    # member_tensor = torch.tensor(member_data.values, dtype=torch.float32).to(device)
+    # non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).to(device)
+    
+    '''For CNNs'''
+    member_tensor = torch.tensor(member_data.values, dtype=torch.float32).reshape(-1, 3, 32, 32).to(device)
+    non_member_tensor = torch.tensor(non_member_data.values, dtype=torch.float32).reshape(-1, 3, 32, 32).to(device)
 
     with torch.no_grad():
         member_outputs = F.softmax(model(member_tensor), dim=1)
@@ -79,6 +86,7 @@ def create_membership_dataframe(
     membership_df = pd.concat([member_df, non_member_df], ignore_index=True)
 
     return membership_df
+
 
 def train_model(
     model: nn.Module,
