@@ -23,6 +23,7 @@ rad.json
 data/*.data
 data/*.csv
 data/*.npz
+*.csv
 
 #models
 *.pth
