@@ -25,6 +25,12 @@ rad.json
 *.h5
 *.onnx
 
+#Data files
+data/*.data
+data/*.csv
+data/*.npz
+*.csv
+
 #compression files
 *.zip
 *.tar.gz
