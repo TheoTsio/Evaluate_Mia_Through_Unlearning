@@ -19,12 +19,6 @@ rad.json
 #License-file
 *.flf
 
-#Data files
-data/*.data
-data/*.csv
-data/*.npz
-*.csv
-
 #models
 *.pth
 *.jolib
