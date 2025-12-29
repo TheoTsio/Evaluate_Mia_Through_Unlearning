@@ -24,6 +24,9 @@ from Target_Models.target_model_2a import *
 from Target_Models.target_model_2b import *
 from Target_Models.target_model_2c import *
 from Target_Models.target_model_1c import *
+from Target_Models.target_model_3a import *
+from Target_Models.target_model_3b import *
+from Target_Models.target_model_3c import *
 import gc
 
 from preprocess_data import *
@@ -41,7 +44,7 @@ def set_random_seed(seed: int = 42) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-model_architecture = TargetModel_2c
+model_architecture = TargetModel_3c
 
 
 def train_model(
@@ -87,7 +90,7 @@ def train_model(
             average_validation_loss = total_validation_loss / \
                 len(val_loader)
 
-            if average_validation_loss < best_validation_loss:
+            if average128_validation_loss < best_validation_loss:
                 best_validation_loss = average_validation_loss
                 patience_counter = 0
             else:
@@ -331,9 +334,9 @@ set_random_seed(42)
 # X, y, num_features, num_classes = get_mnist_dataset()
 # X, y, num_features, num_classes = get_cifar10_dataset()
 # X, y, num_features, num_classes = get_adults_dataset()
-# X, y, num_features, num_classes = get_purchase_dataset(dataset_path='data/dataset_purchase.csv', keep_rows=40_000)
+X, y, num_features, num_classes = get_purchase_dataset(dataset_path='data/dataset_purchase.csv', keep_rows=40_000)
 # X, y, num_features, num_classes = get_MUFAC_dataset("data/custom_korean_family_dataset_resolution_128/custom_train_dataset.csv", "data/custom_korean_family_dataset_resolution_128/train_images", percentage_of_rows_to_drop = 0.4)
-X, y, num_features, num_classes = get_texas_100_dataset(path='data/texas100.npz', limit_rows=40_000)
+# X, y, num_features, num_classes = get_texas_100_dataset(path='data/texas100.npz', limit_rows=40_000)
 
 
 """
